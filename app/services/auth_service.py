@@ -2,7 +2,8 @@ from app.models.user_model import UserRegister, UserLogin, PasswordReset
 from app.db import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
-import jwt, random, string, smtplib, os
+from app.utils import generate_jwt_token
+import random, string, smtplib, os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from flask import current_app
@@ -66,11 +67,10 @@ class AuthService:
         user_register = UserRegister.query.filter_by(email=email).first()
 
         try:
-            token = jwt.encode({
-                'user_id': user_login.id,
-                'email':   user_login.email,
-                'exp':     datetime.utcnow() + timedelta(hours=24)
-            }, current_app.config['SECRET_KEY'], algorithm='HS256')
+            token = generate_jwt_token(user_login.id, user_login.email)
+            
+            if not token:
+                return {'success': False, 'message': 'Internal Error: Could not generate token.'}
 
             user_login.jwt_token = token
             db.session.commit()

@@ -15,6 +15,8 @@ class AuthService:
     @staticmethod
     def register_user(data):
         email = data.get('email')
+        if email:
+            email = email.strip().lower()
 
         existing_user = UserLogin.query.filter_by(email=email).first()
         if existing_user:
@@ -57,6 +59,8 @@ class AuthService:
     @staticmethod
     def login_user(data):
         email    = data.get('email')
+        if email:
+            email = email.strip().lower()
         password = data.get('password')
 
         user_login = UserLogin.query.filter_by(email=email).first()

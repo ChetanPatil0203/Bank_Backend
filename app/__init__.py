@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from flask_cors import CORS
 from app.config.config import Config
@@ -7,20 +8,31 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
     
-    CORS(app)
+    # Enable CORS for all routes and origins
+    CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*"}})
     db.init_app(app)
     
     with app.app_context():
         # Import models so they are registered with SQLAlchemy
-        from app.models.user_model import UserRegister, UserLogin, PasswordReset  # ✅ PasswordReset added
+        from app.models.user_model import UserRegister, UserLogin, PasswordReset
+        from app.models.account_model import AccountRequest, BankAccount
         
         
+        # Ensure upload folder exists
+        if not os.path.exists(app.config['UPLOAD_FOLDER']):
+            os.makedirs(app.config['UPLOAD_FOLDER'])
+            
         db.create_all()
         
         from app.routes.auth_routes import auth_bp
-        
+        from app.routes.account_routes import account_bp
         
         app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
+        app.register_blueprint(account_bp, url_prefix='/api/v1')
        
+        print("\nRegistered Routes:")
+        for rule in app.url_map.iter_rules():
+            print(f"{rule.endpoint}: {rule.rule}")
+        print("\n")
         
     return app

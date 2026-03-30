@@ -16,6 +16,7 @@ def create_app(config_class=Config):
         # Import models so they are registered with SQLAlchemy
         from app.models.user_model import UserRegister, UserLogin, PasswordReset
         from app.models.account_model import AccountRequest, BankAccount
+        from app.models.kyc_model import KYCSubmission
         
         
         # Ensure upload folder exists
@@ -26,9 +27,11 @@ def create_app(config_class=Config):
         
         from app.routes.auth_routes import auth_bp
         from app.routes.account_routes import account_bp
+        from app.routes.kyc_routes import kyc_bp
         
         app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
         app.register_blueprint(account_bp, url_prefix='/api/v1')
+        app.register_blueprint(kyc_bp, url_prefix='/api/v1/kyc')
        
         print("\nRegistered Routes:")
         for rule in app.url_map.iter_rules():

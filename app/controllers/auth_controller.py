@@ -87,3 +87,28 @@ class AuthController:
         result = AuthService.logout_user(token)
         status_code = 200 if result.get('success') else 400
         return jsonify(result), status_code
+
+    @staticmethod
+    def get_profile():
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return jsonify({'success': False, 'message': 'Unauthorized. Please login again.', 'isAuth': False}), 401
+        
+        token = auth_header.split(" ")[1]
+        result = AuthService.get_user_profile(token)
+        
+        status_code = 200 if result.get('success') else (401 if 'isAuth' in result else 400)
+        return jsonify(result), status_code
+
+    @staticmethod
+    def update_profile():
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return jsonify({'success': False, 'message': 'Unauthorized. Please login again.', 'isAuth': False}), 401
+        
+        token = auth_header.split(" ")[1]
+        data = request.get_json() or {}
+        
+        result = AuthService.update_user_profile(token, data)
+        status_code = 200 if result.get('success') else (401 if 'isAuth' in result else 400)
+        return jsonify(result), status_code

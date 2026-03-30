@@ -1,4 +1,4 @@
-from flask import Blueprint
+from flask import Blueprint, request, jsonify
 from app.controllers.auth_controller import AuthController
 
 auth_bp = Blueprint('auth_bp', __name__)
@@ -28,3 +28,11 @@ def forgot_reset_password():
 @auth_bp.route('/logout', methods=['POST'])
 def logout():
     return AuthController.logout()
+
+@auth_bp.route('/profile', methods=['GET', 'PUT', 'POST', 'OPTIONS'])
+def manage_profile():
+    if request.method == 'OPTIONS':
+        return jsonify({'success': True}), 200
+    if request.method in ['PUT', 'POST']:
+        return AuthController.update_profile()
+    return AuthController.get_profile()

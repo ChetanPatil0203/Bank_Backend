@@ -214,3 +214,65 @@ class AuthService:
         except Exception as e:
             print(f"[EMAIL ERROR] {e}")
             return False
+
+    @staticmethod
+    def get_user_profile(token: str):
+        try:
+            from app.models.account_model import AccountRequest, BankAccount
+
+            user_login = UserLogin.query.filter_by(jwt_token=token).first()
+            if not user_login:
+                return {'success': False, 'message': 'Invalid token, please login again.', 'isAuth': False}
+
+            email = user_login.email
+            register_data = UserRegister.query.filter_by(email=email).first()
+            if not register_data:
+                return {'success': False, 'message': 'User profile not found.', 'isAuth': False}
+
+            profile_data = register_data.to_dict()
+            
+            # Try to fetch latest AccountRequest to get address and KYC status
+            account_request = AccountRequest.query.filter_by(email=email).order_by(AccountRequest.created_at.desc()).first()
+            
+            profile_data['address'] = account_request.address if account_request else "—"
+            profile_data['account'] = None
+            
+            if account_request and account_request.status == 'Approved':
+                # Fetch bank account linked to this request
+                bank_account = BankAccount.query.filter_by(request_id=account_request.id).first()
+                if bank_account:
+                    acc_dict = bank_account.to_dict()
+                    acc_dict['father_name'] = account_request.father_name
+                    acc_dict['nominee_name'] = account_request.nominee_name
+                    acc_dict['nominee_relation'] = account_request.nominee_relation
+                    acc_dict['aadhaar'] = account_request.aadhaar
+                    acc_dict['pan'] = account_request.pan
+                    
+                    profile_data['account'] = acc_dict
+
+            return {'success': True, 'data': profile_data}
+            
+        except Exception as e:
+            return {'success': False, 'message': f'Error fetching profile: {str(e)}'}
+
+    @staticmethod
+    def update_user_profile(token: str, data: dict):
+        try:
+            user_login = UserLogin.query.filter_by(jwt_token=token).first()
+            if not user_login:
+                return {'success': False, 'message': 'Invalid token, please login again.', 'isAuth': False}
+
+            email = user_login.email
+            register_data = UserRegister.query.filter_by(email=email).first()
+            if not register_data:
+                return {'success': False, 'message': 'User profile not found.', 'isAuth': False}
+
+            if 'address' in data:
+                register_data.address = data['address']
+
+            db.session.commit()
+            return {'success': True, 'message': 'Profile updated successfully.', 'data': register_data.to_dict()}
+            
+        except Exception as e:
+            db.session.rollback()
+            return {'success': False, 'message': f'Error updating profile: {str(e)}'}

@@ -10,6 +10,7 @@ class UserRegister(db.Model):
     mobile = db.Column(db.String(20), nullable=False)
     date_of_birth = db.Column(db.Date, nullable=False)
     gender = db.Column(db.String(20), nullable=False)
+    address = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -20,6 +21,7 @@ class UserRegister(db.Model):
             'mobile': self.mobile,
             'date_of_birth': self.date_of_birth.strftime('%Y-%m-%d') if self.date_of_birth else None,
             'gender': self.gender,
+            'address': self.address,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 

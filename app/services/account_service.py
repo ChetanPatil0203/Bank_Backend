@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 from app.models.account_model import AccountRequest, BankAccount
 from app.db import db
 from flask import current_app
+from sqlalchemy import or_
 
 class AccountService:
 
@@ -178,11 +179,25 @@ class AccountService:
             return {'success': False, 'message': f'Error rejecting request: {str(e)}'}
 
     @staticmethod
-    def get_all_accounts():
+    def get_all_accounts(query=""):
         try:
-            accounts = BankAccount.query.order_by(BankAccount.opened_at.desc()).all()
+            print(f"DEBUG: Service Searching accounts with query: '{query}'")
+            accounts = BankAccount.query
+            if query:
+                query = query.strip()
+                search = f"%{query.replace(' ', '%')}%"
+                accounts = accounts.filter(
+                    or_(
+                        BankAccount.bank_holder_name.ilike(search),
+                        BankAccount.account_number.ilike(search)
+                    )
+                )
+            
+            accounts = accounts.order_by(BankAccount.opened_at.desc()).all()
+            print(f"DEBUG: Service Found {len(accounts)} matching accounts.")
             return {'success': True, 'data': [a.to_dict() for a in accounts]}
         except Exception as e:
+            print(f"DEBUG ERROR in get_all_accounts: {str(e)}")
             return {'success': False, 'message': str(e), 'data': []}
 
     @staticmethod

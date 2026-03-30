@@ -58,8 +58,10 @@ class AccountController:
 
     @staticmethod
     def get_accounts():
-        result = AccountService.get_all_accounts()
-        return jsonify(result.get('data', [])), 200
+        query = request.args.get('search', '')
+        result = AccountService.get_all_accounts(query)
+        # Return full result so frontend can access 'success' and 'data'
+        return jsonify(result), 200
 
     @staticmethod
     def toggle_status(id):

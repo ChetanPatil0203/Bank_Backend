@@ -128,6 +128,7 @@ class TransactionService:
                 'data': {
                     'account_number': bank_account.account_number,
                     'balance': float(bank_account.balance),
+                    'last_login': user_login.last_login_at.strftime("%d %b %Y, %I:%M %p") if user_login.last_login_at else "First Login",
                     'transactions': [txn.to_dict() for txn in transactions]
                 }
             }

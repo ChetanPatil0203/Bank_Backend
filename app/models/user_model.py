@@ -32,6 +32,19 @@ class UserLogin(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     jwt_token = db.Column(db.Text, nullable=True)
+    failed_attempts = db.Column(db.Integer, default=0)
+    lockout_until   = db.Column(db.DateTime, nullable=True)
+    last_login_at   = db.Column(db.DateTime, nullable=True)
+
+
+class LoginAudit(db.Model):
+    __tablename__ = 'login_audits'
+    
+    id         = db.Column(db.Integer, primary_key=True)
+    email      = db.Column(db.String(120), nullable=False)
+    status     = db.Column(db.String(100), nullable=False) # 'Success', 'Failed', 'Lockout'
+    ip_address = db.Column(db.String(45), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 # ✅ NEW — Password Reset OTP table (auto-created by SQLAlchemy)

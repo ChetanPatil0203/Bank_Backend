@@ -31,12 +31,14 @@ def create_app(config_class=Config):
         from app.routes.kyc_routes import kyc_bp
         from app.routes.user_routes import user_bp
         from app.routes.transaction_routes import transaction_bp
+        from app.routes.ai_routes import ai_bp
         
         app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
         app.register_blueprint(account_bp, url_prefix='/api/v1')
         app.register_blueprint(kyc_bp, url_prefix='/api/v1/kyc')
         app.register_blueprint(user_bp, url_prefix='/api/v1/users')
         app.register_blueprint(transaction_bp, url_prefix='/api/v1')
+        app.register_blueprint(ai_bp, url_prefix='/api/v1/ai')
        
         print("\nRegistered Routes:")
         for rule in app.url_map.iter_rules():

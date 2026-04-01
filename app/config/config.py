@@ -21,3 +21,5 @@ class Config:
     BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
     UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
     # MAX_CONTENT_LENGTH removed to allow unlimited upload sizes
+    # Google Gemini API Configuration
+    GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')

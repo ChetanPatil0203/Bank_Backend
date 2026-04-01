@@ -1,4 +1,4 @@
-from app.models.user_model import UserRegister, UserLogin, PasswordReset
+from app.models.user_model import UserRegister, UserLogin, PasswordReset, LoginAudit
 from app.db import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
@@ -6,7 +6,7 @@ from app.utils import generate_jwt_token
 import random, string, smtplib, os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from flask import current_app
+from flask import current_app, request
 
 
 class AuthService:
@@ -64,13 +64,62 @@ class AuthService:
         password = data.get('password')
 
         user_login = UserLogin.query.filter_by(email=email).first()
+        ip_addr    = request.remote_addr
 
-        if not user_login or not check_password_hash(user_login.password_hash, password):
-            return {'success': False, 'message': 'Invalid Credentials!'}
+        if not user_login:
+            # Audit unknown email attempt
+            audit = LoginAudit(email=email, status='Failed (User Not Found)', ip_address=ip_addr)
+            db.session.add(audit)
+            db.session.commit()
+            return {'success': False, 'message': 'Invalid credentials. Please check your email and password.'}
+
+        # Lockout check
+        if user_login.lockout_until and user_login.lockout_until > datetime.utcnow():
+            remaining_seconds = (user_login.lockout_until - datetime.utcnow()).total_seconds()
+            minutes_left = int(remaining_seconds // 60)
+            
+            audit = LoginAudit(email=email, status='Failed (Lockout active)', ip_address=ip_addr)
+            db.session.add(audit)
+            db.session.commit()
+            
+            return {
+                'success': False, 
+                'message': f'Security Alert: Your account is temporarily locked. Please try again after {minutes_left} minutes.'
+            }
+
+        # Password check
+        if not check_password_hash(user_login.password_hash, password):
+            user_login.failed_attempts += 1
+            status = 'Failed'
+            
+            if user_login.failed_attempts >= 3:
+                user_login.lockout_until = datetime.utcnow() + timedelta(hours=1)
+                status = 'Lockout'
+                # Send Security Alert Email
+                AuthService._send_security_alert_email(email, ip_addr)
+                msg = 'Security Alert: Your account is temporarily locked. Please try again after 1 hour.'
+            else:
+                remaining = 3 - user_login.failed_attempts
+                msg = f'Invalid credentials. {remaining} attempts remaining.'
+            
+            audit = LoginAudit(email=email, status=status, ip_address=ip_addr)
+            db.session.add(audit)
+            db.session.commit()
+
+            return {'success': False, 'message': msg}
 
         user_register = UserRegister.query.filter_by(email=email).first()
 
         try:
+            # Login successful -> Reset lockout and failed attempts
+            user_login.failed_attempts = 0
+            user_login.lockout_until   = None
+            user_login.last_login_at   = datetime.utcnow() # Track last login
+            
+            # Audit Success
+            audit = LoginAudit(email=email, status='Success', ip_address=ip_addr)
+            db.session.add(audit)
+            
             token = generate_jwt_token(user_login.id, user_login.email)
             
             if not token:
@@ -216,6 +265,46 @@ class AuthService:
             return False
 
     @staticmethod
+    def _send_security_alert_email(to_email: str, ip_addr: str) -> bool:
+        sender_email    = os.getenv("GMAIL_USER", "")
+        sender_password = os.getenv("GMAIL_PASSWORD", "")
+
+        if not sender_email or not sender_password:
+            return False
+
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        html = f"""
+        <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;padding:32px;background:#fff5f5;border-radius:16px;border:1px solid #feb2b2;">
+          <div style="background:#c53030;padding:24px;border-radius:12px;text-align:center;margin-bottom:24px;">
+            <h2 style="color:#fff;margin:0;">⚠️ Security Alert</h2>
+          </div>
+          <p style="color:#2d3748;font-size:16px;font-weight:bold;">Your account has been temporarily locked.</p>
+          <p style="color:#4a5568;font-size:14px;line-height:1.6;">
+            There were 3 consecutive failed login attempts on your PayZen account.<br><br>
+            <b>Details:</b><br>
+            • Time: {now}<br>
+            • IP Address: {ip_addr}<br>
+            • Status: Account Locked for 1 Hour<br><br>
+            If this wasn't you, please reset your password immediately or contact support.
+          </p>
+        </div>
+        """
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = "PayZen Security Alert: Account Locked"
+            msg["From"]    = sender_email
+            msg["To"]      = to_email
+            msg.attach(MIMEText(html, "html"))
+            with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                server.starttls()
+                server.login(sender_email, sender_password)
+                server.sendmail(sender_email, to_email, msg.as_string())
+            return True
+        except Exception as e:
+            print(f"[SECURITY EMAIL ERROR] {e}")
+            return False
+
+    @staticmethod
     def get_user_profile(token: str):
         try:
             from app.models.account_model import AccountRequest, BankAccount
@@ -230,6 +319,7 @@ class AuthService:
                 return {'success': False, 'message': 'User profile not found.', 'isAuth': False}
 
             profile_data = register_data.to_dict()
+            profile_data['last_login'] = user_login.last_login_at.strftime("%d %b %Y, %I:%M %p") if user_login.last_login_at else "First Login"
             
             # Try to fetch latest AccountRequest to get address and KYC status
             account_request = AccountRequest.query.filter_by(email=email).order_by(AccountRequest.created_at.desc()).first()

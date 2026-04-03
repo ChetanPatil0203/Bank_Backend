@@ -1,0 +1,21 @@
+# Environment Variables
+.env
+.env.local
+.env.*
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+.venv/
+
+# IDE/VSCode
+.vscode/
+
+# Static Uploads
+app/static/uploads/*
+!app/static/uploads/.gitkeep

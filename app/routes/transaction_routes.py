@@ -14,3 +14,9 @@ def get_my_transactions():
     if request.method == 'OPTIONS':
         return jsonify({'success': True}), 200
     return TransactionController.get_my_transactions()
+
+@transaction_bp.route('/admin/txn-accounts', methods=['GET', 'OPTIONS'])
+def get_admin_accounts():
+    if request.method == 'OPTIONS':
+        return jsonify({'success': True}), 200
+    return TransactionController.get_admin_accounts()

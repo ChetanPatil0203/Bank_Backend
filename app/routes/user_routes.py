@@ -10,3 +10,9 @@ def manage_user_profile():
     if request.method in ['PUT', 'POST']:
         return AuthController.update_profile()
     return AuthController.get_profile()
+
+@user_bp.route('/account-status', methods=['GET', 'OPTIONS'])
+def get_account_status():
+    if request.method == 'OPTIONS':
+        return jsonify({'success': True}), 200
+    return AuthController.get_account_status()

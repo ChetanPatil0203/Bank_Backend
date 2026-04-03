@@ -301,7 +301,7 @@ class AuthService:
                 server.sendmail(sender_email, to_email, msg.as_string())
             return True
         except Exception as e:
-            print(f"[SECURITY EMAIL ERROR] {e}")
+            print(f"[SECURITY ERROR] {e}")
             return False
 
     @staticmethod
@@ -366,3 +366,38 @@ class AuthService:
         except Exception as e:
             db.session.rollback()
             return {'success': False, 'message': f'Error updating profile: {str(e)}'}
+
+    @staticmethod
+    def get_user_account_status(token: str):
+        try:
+            from app.models.account_model import AccountRequest, BankAccount
+
+            user_login = UserLogin.query.filter_by(jwt_token=token).first()
+            if not user_login:
+                return {'success': False, 'message': 'Invalid token, please login again.', 'isAuth': False}
+
+            email = user_login.email
+            
+            # Check for existing bank account first
+            bank_account = BankAccount.query.join(AccountRequest).filter(AccountRequest.email == email).first()
+            if bank_account:
+                return {
+                    'success': True,
+                    'status': 'Approved',
+                    'message': 'already account open',
+                    'account': bank_account.to_dict()
+                }
+
+            # Check for latest account request
+            latest_request = AccountRequest.query.filter_by(email=email).order_by(AccountRequest.created_at.desc()).first()
+            if latest_request:
+                return {
+                    'success': True,
+                    'status': latest_request.status,
+                    'message': f'Request status: {latest_request.status}'
+                }
+
+            return {'success': True, 'status': None, 'message': 'No existing account or request.'}
+            
+        except Exception as e:
+            return {'success': False, 'message': f'Error checking account status: {str(e)}'}

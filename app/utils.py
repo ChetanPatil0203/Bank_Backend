@@ -2,7 +2,7 @@ import jwt
 from datetime import datetime, timedelta
 from flask import current_app
 
-def generate_jwt_token(user_id, email):
+def generate_jwt_token(user_id, email, is_admin=False):
     """
     Generates a JWT token for a user.
     """
@@ -10,6 +10,7 @@ def generate_jwt_token(user_id, email):
         payload = {
             'user_id': user_id,
             'email':   email,
+            'role':    'admin' if is_admin else 'user',
             'exp':     datetime.utcnow() + timedelta(hours=24)
         }
         return jwt.encode(payload, current_app.config['SECRET_KEY'], algorithm='HS256')

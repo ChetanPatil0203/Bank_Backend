@@ -109,10 +109,13 @@ class AccountService:
             return {'success': False, 'message': f'Error submitting request: {str(e)}'}
 
     @staticmethod
-    def get_all_requests():
+    def get_all_requests(status=None):
         try:
-            print(">>> SERVICE: Fetching all requests from DB... <<<")
-            requests = AccountRequest.query.order_by(AccountRequest.created_at.desc()).all()
+            print(f">>> SERVICE: Fetching requests from DB (status={status})... <<<")
+            query = AccountRequest.query
+            if status:
+                query = query.filter_by(status=status)
+            requests = query.order_by(AccountRequest.created_at.desc()).all()
             print(f">>> SERVICE: Found {len(requests)} account requests in DB <<<")
             return {'success': True, 'data': [r.to_dict() for r in requests]}
         except Exception as e:
@@ -179,13 +182,16 @@ class AccountService:
             return {'success': False, 'message': f'Error rejecting request: {str(e)}'}
 
     @staticmethod
-    def get_all_accounts(query=""):
+    def get_all_accounts(query="", status=None):
         try:
-            print(f"DEBUG: Service Searching accounts with query: '{query}'")
+            print(f"DEBUG: Service Searching accounts with query: '{query}', status: '{status}'")
             accounts = BankAccount.query
+            if status:
+                accounts = accounts.filter_by(status=status)
             if query:
                 query = query.strip()
                 search = f"%{query.replace(' ', '%')}%"
+                from sqlalchemy import or_
                 accounts = accounts.filter(
                     or_(
                         BankAccount.bank_holder_name.ilike(search),

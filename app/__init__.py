@@ -1,5 +1,5 @@
 import os
-from flask import Flask
+from flask import Flask, request
 from flask_cors import CORS
 from app.config.config import Config
 from app.db import db
@@ -14,11 +14,10 @@ def create_app(config_class=Config):
     
     with app.app_context():
         # Import models so they are registered with SQLAlchemy
-        from app.models.user_model import UserRegister, UserLogin, PasswordReset
+        from app.models.user_model import UserRegister, UserLogin, PasswordReset, AdminLogin
         from app.models.account_model import AccountRequest, BankAccount
         from app.models.kyc_model import KYCSubmission
         from app.models.transaction_model import Transaction
-        
         
         # Ensure upload folder exists
         if not os.path.exists(app.config['UPLOAD_FOLDER']):
@@ -39,7 +38,11 @@ def create_app(config_class=Config):
         app.register_blueprint(user_bp, url_prefix='/api/v1/users')
         app.register_blueprint(transaction_bp, url_prefix='/api/v1')
         app.register_blueprint(ai_bp, url_prefix='/api/v1/ai')
-       
+        
+        @app.before_request
+        def log_request():
+            print(f">>> REQ: {request.method} {request.path} {request.args} <<<")
+        
         print("\nRegistered Routes:")
         for rule in app.url_map.iter_rules():
             print(f"{rule.endpoint}: {rule.rule}")

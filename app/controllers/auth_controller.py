@@ -11,6 +11,12 @@ class AuthController:
         if not data:
             return jsonify({'success': False, 'message': 'No data provided.'}), 400
 
+        # Normalize field names for flexibility (support dob, confirm_password)
+        if 'dob' in data:
+            data.setdefault('date_of_birth', data['dob'])
+        if 'confirm_password' in data:
+            data.setdefault('confirmPassword', data['confirm_password'])
+
         required_fields = ['name', 'email', 'mobile', 'date_of_birth', 'gender', 'password', 'confirmPassword']
         for field in required_fields:
             if field not in data or not data.get(field):
@@ -29,6 +35,17 @@ class AuthController:
             return jsonify({'success': False, 'message': 'Email and Password required.'}), 400
 
         result = AuthService.login_user(data)
+        status_code = 200 if result.get('success') else 401
+        return jsonify(result), status_code
+
+    @staticmethod
+    def admin_login():
+        data = request.get_json()
+
+        if not data or not data.get('email') or not data.get('password'):
+            return jsonify({'success': False, 'message': 'Email and Password required.'}), 400
+
+        result = AuthService.admin_login(data)
         status_code = 200 if result.get('success') else 401
         return jsonify(result), status_code
 

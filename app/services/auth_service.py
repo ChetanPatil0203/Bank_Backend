@@ -139,6 +139,66 @@ class AuthService:
         except Exception as e:
             return {'success': False, 'message': f'Error generating token: {str(e)}'}
 
+    @staticmethod
+    def admin_login(data):
+        from app.models.user_model import AdminLogin
+        email    = data.get('email', '').strip().lower()
+        password = data.get('password', '')
+
+        # Query the separate AdminLogin table
+        admin = AdminLogin.query.filter_by(email=email).first()
+        
+        if not admin:
+            return {'success': False, 'message': 'Invalid Admin Credentials. Please check and try again.'}
+
+        # Lockout check
+        if admin.lockout_until and admin.lockout_until > datetime.utcnow():
+            remaining_seconds = (admin.lockout_until - datetime.utcnow()).total_seconds()
+            minutes_left = int(remaining_seconds // 60)
+            return {
+                'success': False, 
+                'message': f'Security Alert: Your account is temporarily locked. Please try again after {minutes_left} minutes.'
+            }
+
+        if check_password_hash(admin.password_hash, password):
+            # Login successful -> Reset lockout and failed attempts
+            admin.failed_attempts = 0
+            admin.lockout_until   = None
+            admin.login_time      = datetime.utcnow()
+            
+            # Generate token
+            token = generate_jwt_token(admin.id, admin.email, is_admin=True)
+            
+            if not token:
+                return {'success': False, 'message': 'Internal Error: Could not generate token.'}
+
+            # Update database
+            admin.jwt_token  = token
+            db.session.commit()
+
+            return {
+                'success': True,
+                'message': 'Admin Login Successful! 🎉',
+                'user':    {
+                    'email': admin.email, 
+                    'name':  'System Admin', 
+                    'role':  'admin'
+                },
+                'token': token
+            }
+        
+        # Password failed
+        admin.failed_attempts += 1
+        if admin.failed_attempts >= 3:
+            admin.lockout_until = datetime.utcnow() + timedelta(hours=1)
+            msg = 'Security Alert: Your account is temporarily locked. Please try again after 1 hour.'
+        else:
+            remaining = 3 - admin.failed_attempts
+            msg = f'Invalid Admin Credentials. {remaining} attempts remaining.'
+        
+        db.session.commit()
+        return {'success': False, 'message': msg}
+
     # ─── FORGOT — STEP 1: Send OTP ────────────────────────────────────────────
     @staticmethod
     def forgot_send_otp(email: str):
@@ -201,13 +261,22 @@ class AuthService:
     @staticmethod
     def logout_user(token: str):
         try:
+            # Check UserLogin
             user_login = UserLogin.query.filter_by(jwt_token=token).first()
-            if not user_login:
-                return {'success': False, 'message': 'Invalid token or already logged out.'}
+            if user_login:
+                user_login.jwt_token = None
+                db.session.commit()
+                return {'success': True, 'message': 'Logged out successfully.'}
+            
+            # Check AdminLogin
+            from app.models.user_model import AdminLogin
+            admin_login = AdminLogin.query.filter_by(jwt_token=token).first()
+            if admin_login:
+                admin_login.jwt_token = None
+                db.session.commit()
+                return {'success': True, 'message': 'Admin logged out successfully.'}
                 
-            user_login.jwt_token = None
-            db.session.commit()
-            return {'success': True, 'message': 'Logged out successfully.'}
+            return {'success': False, 'message': 'Invalid token or already logged out.'}
         except Exception as e:
             return {'success': False, 'message': f'Error logging out: {str(e)}'}
 

@@ -12,6 +12,10 @@ def register():
 def login():
     return AuthController.login()
 
+@auth_bp.route('/admin/login', methods=['POST'])
+def admin_login():
+    return AuthController.admin_login()
+
 # ── Forgot Password — 3 steps ─────────────────────────────────────────────────
 @auth_bp.route('/send-otp', methods=['POST'])
 def forgot_send_otp():

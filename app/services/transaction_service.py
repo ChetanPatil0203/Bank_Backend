@@ -40,6 +40,10 @@ class TransactionService:
         try:
             user_login = UserLogin.query.filter_by(jwt_token=token).first()
             if not user_login:
+                from app.models.user_model import AdminLogin
+                user_login = AdminLogin.query.filter_by(jwt_token=token).first()
+
+            if not user_login:
                 return {'success': False, 'message': 'Unauthorized', 'isAuth': False}
 
             account_number = data.get('account_number')
@@ -101,11 +105,32 @@ class TransactionService:
     @staticmethod
     def get_user_transactions(token):
         try:
+            # 1. Check UserLogin
             user_login = UserLogin.query.filter_by(jwt_token=token).first()
+            is_admin = False
+            
+            # 2. Check AdminLogin
+            if not user_login:
+                from app.models.user_model import AdminLogin
+                user_login = AdminLogin.query.filter_by(jwt_token=token).first()
+                is_admin = True
+
             if not user_login:
                 return {'success': False, 'message': 'Unauthorized', 'isAuth': False}
                 
             email = user_login.email
+            if is_admin:
+                # Admins don't have a regular register entry or bank account for history
+                return {
+                    'success': True, 
+                    'data': {
+                        'account_number': 'ADMIN',
+                        'balance': 0,
+                        'last_login': user_login.login_time.strftime("%d %b %Y, %I:%M %p") if user_login.login_time else "First Login",
+                        'transactions': []
+                    }
+                }
+
             register = UserRegister.query.filter_by(email=email).first()
             if not register:
                 return {'success': False, 'message': 'User profile not found.'}

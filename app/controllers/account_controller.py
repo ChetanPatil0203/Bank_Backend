@@ -36,8 +36,9 @@ class AccountController:
     @staticmethod
     def get_requests():
         print(">>> [GET] ADMIN REQUESTS CALLED <<<")
-        result = AccountService.get_all_requests()
-        print(f">>> Returning {len(result.get('data', []))} records to Frontend <<<")
+        status = request.args.get('status')
+        result = AccountService.get_all_requests(status=status)
+        print(f">>> Returning {len(result.get('data', []))} records to Frontend (status={status}) <<<")
         return jsonify(result.get('data', [])), 200
 
     @staticmethod
@@ -59,8 +60,8 @@ class AccountController:
     @staticmethod
     def get_accounts():
         query = request.args.get('search', '')
-        result = AccountService.get_all_accounts(query)
-        # Return only the data list so the frontend can correctly parse it as an array
+        status = request.args.get('status')
+        result = AccountService.get_all_accounts(query=query, status=status)
         return jsonify(result.get('data', [])), 200
 
     @staticmethod

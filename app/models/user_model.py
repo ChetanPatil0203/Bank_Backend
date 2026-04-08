@@ -69,3 +69,26 @@ class PasswordReset(db.Model):
     otp_expiry = db.Column(db.DateTime, nullable=False)
     is_used    = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# ✅ NEW — User Preferences table for notification settings
+class UserPreference(db.Model):
+    __tablename__ = 'user_preferences'
+
+    id                 = db.Column(db.Integer, primary_key=True)
+    user_id            = db.Column(db.Integer, db.ForeignKey('login.id'), nullable=False, unique=True)
+    email_notifications = db.Column(db.Boolean, default=True)
+    sms_notifications   = db.Column(db.Boolean, default=True)
+    push_notifications  = db.Column(db.Boolean, default=False)
+    security_alerts     = db.Column(db.Boolean, default=True)
+    transaction_alerts  = db.Column(db.Boolean, default=True)
+    offer_promotions    = db.Column(db.Boolean, default=False)
+    
+    def to_dict(self):
+        return {
+            'email': self.email_notifications,
+            'sms': self.sms_notifications,
+            'push': self.push_notifications,
+            'security': self.security_alerts,
+            'transactions': self.transaction_alerts,
+            'offers': self.offer_promotions
+        }

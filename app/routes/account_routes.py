@@ -60,3 +60,8 @@ def close_account(id):
     if request.method == 'OPTIONS':
         return jsonify({'success': True}), 200
     return AccountController.close_account(id)
+@account_bp.route('/admin/dashboard-stats', methods=['GET', 'OPTIONS'])
+def get_dashboard_stats():
+    if request.method == 'OPTIONS':
+        return jsonify({'success': True}), 200
+    return AccountController.get_dashboard_stats()

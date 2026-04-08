@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 from app.models.account_model import AccountRequest, BankAccount
 from app.db import db
 from flask import current_app
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 
 class AccountService:
 
@@ -232,4 +232,51 @@ class AccountService:
             return {'success': True, 'message': 'Account closed permanently.', 'data': acc.to_dict()}
         except Exception as e:
             db.session.rollback()
+            return {'success': False, 'message': str(e)}
+    @staticmethod
+    def get_dashboard_stats():
+        try:
+            from app.models.user_model import UserRegister
+            from app.models.transaction_model import Transaction
+            from app.models.kyc_model import KYCSubmission
+
+            # 1. Total Users
+            total_users = UserRegister.query.count()
+
+            # 2. Total Accounts
+            total_accounts = BankAccount.query.count()
+
+            # 3. Total Balance
+            total_balance = db.session.query(func.sum(BankAccount.balance)).scalar() or 0.0
+
+            # 4. Total Transactions
+            total_transactions = Transaction.query.count()
+
+            # 5. Pending KYC
+            pending_kyc = KYCSubmission.query.filter_by(status='Pending').count()
+
+            # 6. Account Requests (Pending)
+            pending_requests = AccountRequest.query.filter_by(status='Pending').count()
+
+            # 7. Recent Transactions (Last 5)
+            recent_txns = Transaction.query.order_by(Transaction.created_at.desc()).limit(5).all()
+
+            return {
+                'success': True,
+                'data': {
+                    'stats': [
+                        {'label': 'Total Users',        'value': f"{total_users:,}"},
+                        {'label': 'Total Accounts',     'value': f"{total_accounts:,}"},
+                        {'label': 'Total Balance',      'value': f"₹{float(total_balance)/100000:.1f}L" if total_balance >= 100000 else f"₹{float(total_balance):,}"},
+                        {'label': 'Total Transactions', 'value': f"{total_transactions:,}"},
+                        {'label': 'Pending KYC',        'value': f"{pending_kyc:,}"},
+                        {'label': 'Account Requests',   'value': f"{pending_requests:,}"}
+                    ],
+                    'transactions': [t.to_dict() for t in recent_txns]
+                }
+            }
+        except Exception as e:
+            print(f">>> DASHBOARD STATS ERROR: {e} <<<")
+            import traceback
+            traceback.print_exc()
             return {'success': False, 'message': str(e)}

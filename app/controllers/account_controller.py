@@ -75,3 +75,8 @@ class AccountController:
         result = AccountService.close_account(id)
         status_code = 200 if result.get('success') else 400
         return jsonify(result), status_code
+    @staticmethod
+    def get_dashboard_stats():
+        result = AccountService.get_dashboard_stats()
+        status_code = 200 if result.get('success') else 500
+        return jsonify(result), status_code

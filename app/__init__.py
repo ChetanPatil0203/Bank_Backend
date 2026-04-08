@@ -24,6 +24,22 @@ def create_app(config_class=Config):
             os.makedirs(app.config['UPLOAD_FOLDER'])
             
         db.create_all()
+
+        # --- SEED ADMIN CREDENTIALS ---
+        from werkzeug.security import generate_password_hash
+        admin_email = "Payzen2026@gmail.com"
+        admin_pass = "Payzen@2026"
+        
+        admin_exists = AdminLogin.query.filter_by(email=admin_email).first()
+        if not admin_exists:
+            new_admin = AdminLogin(
+                email=admin_email,
+                password_hash=generate_password_hash(admin_pass)
+            )
+            db.session.add(new_admin)
+            db.session.commit()
+            print(f"\n[INIT] Admin seeded: {admin_email}\n")
+        # -----------------------------
         
         from app.routes.auth_routes import auth_bp
         from app.routes.account_routes import account_bp

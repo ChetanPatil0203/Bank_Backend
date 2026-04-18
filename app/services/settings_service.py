@@ -1,4 +1,5 @@
 from app.models.user_model import UserRegister, UserLogin, UserPreference, LoginAudit
+from app.models.account_model import AccountRequest, BankAccount
 from app.db import db
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -12,11 +13,37 @@ class SettingsService:
             if not user_login:
                 return {'success': False, 'message': 'User not found.'}
 
-            register_user = UserRegister.query.filter_by(email=user_login.email).first()
+            email = user_login.email
+            register_user = UserRegister.query.filter_by(email=email).first()
             if not register_user:
                 return {'success': False, 'message': 'Profile data not found.'}
 
-            return {'success': True, 'data': register_user.to_dict()}
+            profile_data = register_user.to_dict()
+            
+            # Fetch latest AccountRequest to get address and KYC status/account info
+            account_request = AccountRequest.query.filter_by(email=email).order_by(AccountRequest.created_at.desc()).first()
+            
+            if account_request:
+                # Fallback address if not set in register
+                if not profile_data.get('address') or profile_data['address'] == "—":
+                    profile_data['address'] = account_request.address
+
+            profile_data['account'] = None
+            
+            if account_request and account_request.status == 'Approved':
+                # Fetch bank account linked to this request
+                bank_account = BankAccount.query.filter_by(request_id=account_request.id).first()
+                if bank_account:
+                    acc_dict = bank_account.to_dict()
+                    acc_dict['father_name'] = account_request.father_name
+                    acc_dict['nominee_name'] = account_request.nominee_name
+                    acc_dict['nominee_relation'] = account_request.nominee_relation
+                    acc_dict['aadhaar'] = account_request.aadhaar
+                    acc_dict['pan'] = account_request.pan
+                    
+                    profile_data['account'] = acc_dict
+
+            return {'success': True, 'data': profile_data}
         except Exception as e:
             return {'success': False, 'message': f'Error fetching profile: {str(e)}'}
 

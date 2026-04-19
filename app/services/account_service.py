@@ -158,6 +158,15 @@ class AccountService:
             db.session.add(new_account)
             db.session.commit()
             
+            # Send approval email
+            from app.services.email_service import EmailService
+            EmailService.send_account_approval_email(
+                to_email=req.email,
+                name=req.bank_holder_name,
+                account_number=acc_num,
+                ifsc=ifsc
+            )
+            
             return {
                 'success': True, 
                 'message': 'Account approved and created successfully.',

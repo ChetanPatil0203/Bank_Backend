@@ -39,3 +39,16 @@ class TransactionController:
         
         status = 200 if result.get('success') else (401 if 'isAuth' in result else 400)
         return jsonify(result), status
+
+    @staticmethod
+    def process_money_transfer():
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return jsonify({'success': False, 'message': 'Missing Token', 'isAuth': False}), 401
+        
+        token = auth_header.split(" ")[1]
+        data = request.get_json() or {}
+        
+        result = TransactionService.perform_money_transfer(token, data)
+        status = 200 if result.get('success') else (401 if 'isAuth' in result else 400)
+        return jsonify(result), status

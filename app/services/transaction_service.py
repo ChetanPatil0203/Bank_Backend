@@ -160,3 +160,100 @@ class TransactionService:
 
         except Exception as e:
             return {'success': False, 'message': f'Error fetching transactions: {str(e)}'}
+
+    @staticmethod
+    def perform_money_transfer(token, data):
+        try:
+            # 1. Check UserLogin
+            user_login = UserLogin.query.filter_by(jwt_token=token).first()
+            if not user_login:
+                return {'success': False, 'message': 'Unauthorized', 'isAuth': False}
+                
+            email = user_login.email
+            
+            # Find the sender's bank account
+            from app.models.account_model import AccountRequest
+            account_request = AccountRequest.query.filter_by(email=email, status='Approved').order_by(AccountRequest.created_at.desc()).first()
+            
+            if not account_request:
+                return {'success': False, 'message': 'Sender bank account not found or not approved.'}
+
+            sender_account = BankAccount.query.filter_by(request_id=account_request.id).first()
+            if not sender_account:
+                return {'success': False, 'message': 'Sender bank account not found.'}
+                
+            if sender_account.status == 'Closed':
+                return {'success': False, 'message': 'Your account is closed.'}
+
+            # Parse transfer data (from frontend: accountNumber, amount, remark)
+            to_account_number = data.get('accountNumber')
+            amount = data.get('amount')
+            remark = data.get('remark', '')
+
+            if not to_account_number or amount is None:
+                return {'success': False, 'message': 'Missing recipient account number or amount.'}
+
+            amount = float(amount)
+            if amount <= 0:
+                return {'success': False, 'message': 'Transfer amount must be greater than zero.'}
+                
+            # Business Rule: Cannot transfer to self
+            if sender_account.account_number == to_account_number:
+                return {'success': False, 'message': 'Cannot transfer money to your own account.'}
+
+            # Sender balance check
+            if float(sender_account.balance) < amount:
+                return {'success': False, 'message': 'Insufficient balance for this transfer.'}
+
+            # Find recipient account
+            receiver_account = BankAccount.query.filter_by(account_number=to_account_number).first()
+            if not receiver_account:
+                 return {'success': False, 'message': 'Invalid recipient account number. Beneficiary not found.'}
+                 
+            if receiver_account.status == 'Closed':
+                 return {'success': False, 'message': 'Recipient account is closed and cannot receive funds.'}
+
+            # Execute Transfer Atomic Transaction
+            try:
+                # 1. Deduct from sender
+                sender_account.balance = float(sender_account.balance) - amount
+                sender_txn = Transaction(
+                    account_id=sender_account.id,
+                    account_number=sender_account.account_number,
+                    user_name=sender_account.bank_holder_name,
+                    type='Transfer Out',
+                    amount=amount,
+                    note=f"To {receiver_account.bank_holder_name} - {remark}",
+                    status='Success'
+                )
+                db.session.add(sender_txn)
+
+                # 2. Add to receiver
+                receiver_account.balance = float(receiver_account.balance) + amount
+                receiver_txn = Transaction(
+                    account_id=receiver_account.id,
+                    account_number=receiver_account.account_number,
+                    user_name=receiver_account.bank_holder_name,
+                    type='Transfer In',
+                    amount=amount,
+                    note=f"From {sender_account.bank_holder_name} - {remark}",
+                    status='Success'
+                )
+                db.session.add(receiver_txn)
+                
+                db.session.commit()
+                
+                return {
+                    'success': True,
+                    'message': 'Money transfer successful!',
+                    'data': {
+                        'new_balance': float(sender_account.balance),
+                        'transaction': sender_txn.to_dict()
+                    }
+                }
+            except Exception as txn_err:
+                db.session.rollback()
+                raise txn_err
+
+        except Exception as e:
+            return {'success': False, 'message': f'Transfer failed due to system error: {str(e)}'}

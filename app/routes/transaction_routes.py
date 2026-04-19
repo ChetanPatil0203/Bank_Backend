@@ -20,3 +20,9 @@ def get_admin_accounts():
     if request.method == 'OPTIONS':
         return jsonify({'success': True}), 200
     return TransactionController.get_admin_accounts()
+
+@transaction_bp.route('/auth/transfer', methods=['POST', 'OPTIONS'])
+def money_transfer():
+    if request.method == 'OPTIONS':
+        return jsonify({'success': True}), 200
+    return TransactionController.process_money_transfer()

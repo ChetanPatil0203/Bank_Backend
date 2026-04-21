@@ -15,7 +15,12 @@ class Config:
     DB_NAME = os.environ.get('DB_NAME', 'payzen_bank')
     
     # Priority given to DATABASE_URL (Standard on Render)
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    # Checking for multiple case variations to be robust
+    SQLALCHEMY_DATABASE_URI = (
+        os.environ.get('DATABASE_URL') or 
+        os.environ.get('Database_URL') or 
+        os.environ.get('database_url')
+    )
     
     if SQLALCHEMY_DATABASE_URI:
         # SQLAlchemy 1.4+ requires 'postgresql://' instead of 'postgres://'
@@ -23,6 +28,12 @@ class Config:
             SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace("postgres://", "postgresql://", 1)
     else:
         # Fallback to individual components
+        # URL-encode the password to handle special characters safely
+        DB_USER = os.environ.get('DB_USER', 'postgres')
+        DB_PASSWORD = urllib.parse.quote_plus(os.environ.get('DB_PASSWORD', ''))
+        DB_HOST = os.environ.get('DB_HOST', 'localhost')
+        DB_PORT = os.environ.get('DB_PORT', '5432')
+        DB_NAME = os.environ.get('DB_NAME', 'payzen_bank')
         SQLALCHEMY_DATABASE_URI = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False

@@ -9,13 +9,22 @@ class Config:
     
     # PostgreSQL Database configuration
     DB_USER = os.environ.get('DB_USER', 'postgres')
-    # URL-encode the password to handle special characters safely
     DB_PASSWORD = urllib.parse.quote_plus(os.environ.get('DB_PASSWORD', ''))
     DB_HOST = os.environ.get('DB_HOST', 'localhost')
     DB_PORT = os.environ.get('DB_PORT', '5432')
     DB_NAME = os.environ.get('DB_NAME', 'payzen_bank')
     
-    SQLALCHEMY_DATABASE_URI = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    # Priority given to DATABASE_URL (Standard on Render)
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    
+    if SQLALCHEMY_DATABASE_URI:
+        # SQLAlchemy 1.4+ requires 'postgresql://' instead of 'postgres://'
+        if SQLALCHEMY_DATABASE_URI.startswith("postgres://"):
+            SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace("postgres://", "postgresql://", 1)
+    else:
+        # Fallback to individual components
+        SQLALCHEMY_DATABASE_URI = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # File Upload Configuration

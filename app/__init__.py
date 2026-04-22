@@ -57,10 +57,6 @@ def create_app(config_class=Config):
         app.register_blueprint(ai_bp, url_prefix='/api/v1/ai')
         app.register_blueprint(settings_bp, url_prefix='/api/v1/settings')
         
-        @app.route('/')
-        def health_check():
-            return {"status": "online", "message": "PayZen API is running"}
-
         @app.before_request
         def log_request():
             print(f">>> REQ: {request.method} {request.path} {request.args} <<<")

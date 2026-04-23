@@ -33,6 +33,10 @@ def forgot_reset_password():
 def logout():
     return AuthController.logout()
 
+@auth_bp.route('/balance', methods=['GET'])
+def get_balance():
+    return AuthController.get_balance()
+
 @auth_bp.route('/profile', methods=['GET', 'PUT', 'POST', 'OPTIONS'])
 def manage_profile():
     if request.method == 'OPTIONS':

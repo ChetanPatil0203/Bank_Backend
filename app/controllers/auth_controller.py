@@ -141,3 +141,23 @@ class AuthController:
         
         status_code = 200 if result.get('success') else (401 if 'isAuth' in result else 400)
         return jsonify(result), status_code
+
+    @staticmethod
+    def get_balance():
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return jsonify({'success': False, 'message': 'Unauthorized.', 'isAuth': False}), 401
+        
+        token = auth_header.split(" ")[1]
+        
+        from app.services.transaction_service import TransactionService
+        result = TransactionService.get_user_transactions(token)
+        
+        if result.get('success'):
+            return jsonify({
+                'success': True,
+                'balance': result['data'].get('balance', 0),
+                'account_number': result['data'].get('account_number', '')
+            }), 200
+            
+        return jsonify(result), 400

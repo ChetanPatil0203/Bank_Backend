@@ -28,7 +28,7 @@ def create_app(config_class=Config):
 
         # --- SEED ADMIN CREDENTIALS ---
         from werkzeug.security import generate_password_hash
-        admin_email = "Payzen2026@gmail.com"
+        admin_email = "payzen2026@gmail.com"
         admin_pass = "Payzen@2026"
         
         admin_exists = AdminLogin.query.filter_by(email=admin_email).first()

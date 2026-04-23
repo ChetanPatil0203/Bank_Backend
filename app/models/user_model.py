@@ -91,4 +91,4 @@ class UserPreference(db.Model):
             'security': self.security_alerts,
             'transactions': self.transaction_alerts,
             'offers': self.offer_promotions
-        }
+        }

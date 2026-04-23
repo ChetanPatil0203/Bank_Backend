@@ -17,8 +17,7 @@ class AIService:
         self.system_instruction = (
             "You are 'Ask Payzen', a helpful AI assistant for Payzen Bank. "
             "You provide guidance and recommendations about Payzen Bank products and services. "
-            "IMPORTANT: Detect the user's language. If the user types in English, respond in English. "
-            "If the user types in Marathi (or Hinglish), respond in Marathi. "
+            "Always respond in English, regardless of the user's input language. "
             "Always format your answers using bullet points or numbered lists for clarity. "
             "Avoid long paragraphs. Keep each point concise, professional, and friendly."
         )

@@ -3,6 +3,7 @@ from app.models.user_model import UserLogin, UserRegister
 from app.models.transaction_model import Transaction
 from app.db import db
 from sqlalchemy import or_
+from app.services.email_service import EmailService
 
 class TransactionService:
     @staticmethod
@@ -88,6 +89,32 @@ class TransactionService:
 
             db.session.add(new_txn)
             db.session.commit()
+
+            # --- Trigger Transaction Email ---
+            try:
+                # Find the user's email if not already present
+                user_email = None
+                user_name = account.bank_holder_name
+                
+                # Try to get email from UserRegister linked to this account
+                from app.models.account_model import AccountRequest
+                req = AccountRequest.query.get(account.request_id)
+                if req:
+                    user_email = req.email
+                
+                if user_email:
+                    EmailService.send_transaction_alert_email(
+                        to_email=user_email,
+                        name=user_name,
+                        txn_type=txn_type,
+                        amount=amount,
+                        balance=float(account.balance),
+                        timestamp=new_txn.created_at.strftime("%d %b %Y, %I:%M %p"),
+                        note=note
+                    )
+            except Exception as e:
+                print(f"DEBUG EMAIL ERROR: {str(e)}")
+            # ---------------------------------
 
             return {
                 'success': True, 
@@ -242,6 +269,36 @@ class TransactionService:
                 db.session.add(receiver_txn)
                 
                 db.session.commit()
+                
+                # --- Trigger Transfer Emails ---
+                try:
+                    # Sender Email
+                    sender_email = user_login.email
+                    EmailService.send_transaction_alert_email(
+                        to_email=sender_email,
+                        name=sender_account.bank_holder_name,
+                        txn_type='Transfer Out',
+                        amount=amount,
+                        balance=float(sender_account.balance),
+                        timestamp=sender_txn.created_at.strftime("%d %b %Y, %I:%M %p"),
+                        note=sender_txn.note
+                    )
+                    
+                    # Receiver Email
+                    receiver_req = AccountRequest.query.get(receiver_account.request_id)
+                    if receiver_req and receiver_req.email:
+                        EmailService.send_transaction_alert_email(
+                            to_email=receiver_req.email,
+                            name=receiver_account.bank_holder_name,
+                            txn_type='Transfer In',
+                            amount=amount,
+                            balance=float(receiver_account.balance),
+                            timestamp=receiver_txn.created_at.strftime("%d %b %Y, %I:%M %p"),
+                            note=receiver_txn.note
+                        )
+                except Exception as e:
+                    print(f"DEBUG TRANSFER EMAIL ERROR: {str(e)}")
+                # -------------------------------
                 
                 return {
                     'success': True,

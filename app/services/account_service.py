@@ -158,6 +158,17 @@ class AccountService:
             db.session.add(new_account)
             db.session.commit()
             
+            # --- Link with KYC Submission ---
+            try:
+                from app.models.kyc_model import KYCSubmission
+                kyc = KYCSubmission.query.filter_by(email=req.email).first()
+                if kyc:
+                    kyc.status = 'Verified'
+                    db.session.commit()
+            except Exception as e:
+                print(f"DEBUG KYC LINK ERROR: {str(e)}")
+            # -------------------------------
+            
             # Send approval email
             from app.services.email_service import EmailService
             EmailService.send_account_approval_email(

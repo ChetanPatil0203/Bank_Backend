@@ -22,8 +22,22 @@ class AuthService:
         if existing_user:
             return {'success': False, 'message': 'Email already registered.'}
 
+        import re
+        email_regex = r'^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$'
+        if not re.match(email_regex, email):
+            return {'success': False, 'message': 'Invalid email format.'}
+
         password         = data.get('password')
         confirm_password = data.get('confirmPassword')
+
+        if len(password) < 8:
+            return {'success': False, 'message': 'Password must be at least 8 characters long.'}
+        if not any(c.isupper() for c in password):
+            return {'success': False, 'message': 'Password must contain at least one uppercase letter.'}
+        if not any(c.islower() for c in password):
+            return {'success': False, 'message': 'Password must contain at least one lowercase letter.'}
+        if not any(c.isdigit() for c in password):
+            return {'success': False, 'message': 'Password must contain at least one number.'}
 
         if password != confirm_password:
             return {'success': False, 'message': 'Passwords do not match.'}

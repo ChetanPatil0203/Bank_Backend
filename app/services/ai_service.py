@@ -11,7 +11,7 @@ class AIService:
         
         # Initialize the new Google GenAI Client
         self.client = genai.Client(api_key=self.api_key)
-        self.model_id = 'gemini-2.0-flash' # Using stable flash model, adjust if gemini-2.5-flash is preferred
+        self.model_id = 'gemini-2.5-flash' # Using stable flash model
         
         # System instruction for Payzen Bank
         self.system_instruction = (

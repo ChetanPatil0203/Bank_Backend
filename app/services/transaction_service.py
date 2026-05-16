@@ -35,9 +35,50 @@ class TransactionService:
             return {'success': False, 'message': f'Error fetching accounts: {str(e)}'}
 
     @staticmethod
+    def send_transaction_otp(token, account_number):
+        try:
+            # Verify Admin
+            from app.models.user_model import AdminLogin
+            admin = AdminLogin.query.filter_by(jwt_token=token).first()
+            if not admin:
+                return {'success': False, 'message': 'Unauthorized'}
+
+            account = BankAccount.query.filter_by(account_number=account_number).first()
+            if not account:
+                return {'success': False, 'message': 'Account not found.'}
+
+            # Find User Email
+            from app.models.account_model import AccountRequest
+            req = AccountRequest.query.get(account.request_id)
+            if not req or not req.email:
+                return {'success': False, 'message': 'User email not found for this account.'}
+
+            import random, string, os
+            from datetime import datetime, timedelta
+            from app.models.user_model import PasswordReset
+            
+            otp = "".join(random.choices(string.digits, k=6))
+            expiry = datetime.utcnow() + timedelta(minutes=10)
+            
+            # Save OTP (reuse PasswordReset table with a specific note if needed, 
+            # but for now we just use the email)
+            # Invalidate old ones
+            PasswordReset.query.filter_by(email=req.email, is_used=False).update({'is_used': True})
+            
+            reset = PasswordReset(email=req.email, otp=otp, otp_expiry=expiry)
+            db.session.add(reset)
+            db.session.commit()
+
+            # Send Email
+            from app.services.email_service import EmailService
+            EmailService.send_otp_email(req.email, otp, "Transaction Verification")
+            
+            return {'success': True, 'message': f'OTP sent to {req.email}'}
+        except Exception as e:
+            return {'success': False, 'message': f'Failed to send OTP: {str(e)}'}
+
+    @staticmethod
     def perform_transaction(token, data):
-        # We need to verify if the token belongs to an Admin (optional, depending on auth setup)
-        # But here we'll assume the route allows it or token check is sufficient
         try:
             user_login = UserLogin.query.filter_by(jwt_token=token).first()
             if not user_login:
@@ -48,35 +89,53 @@ class TransactionService:
                 return {'success': False, 'message': 'Unauthorized', 'isAuth': False}
 
             account_number = data.get('account_number')
-            txn_type = data.get('type') # 'Deposit' or 'Withdraw'
+            txn_type = data.get('type')
             amount = data.get('amount')
+            otp = data.get('otp')
             note = data.get('note', '')
 
             if not account_number or not txn_type or amount is None:
-                return {'success': False, 'message': 'Missing required fields (account_number, type, amount).'}
+                return {'success': False, 'message': 'Missing required fields.'}
 
-            amount = float(amount)
-            if amount <= 0:
-                return {'success': False, 'message': 'Amount must be greater than zero.'}
-
-            if txn_type not in ['Deposit', 'Withdraw']:
-                return {'success': False, 'message': "Invalid transaction type. Must be 'Deposit' or 'Withdraw'."}
+            if not otp:
+                return {'success': False, 'message': 'OTP is required to complete transaction.'}
 
             account = BankAccount.query.filter_by(account_number=account_number).first()
             if not account:
                 return {'success': False, 'message': 'Account not found.'}
+
+            # Verify OTP
+            from app.models.account_model import AccountRequest
+            req = AccountRequest.query.get(account.request_id)
+            if not req:
+                return {'success': False, 'message': 'Account holder data missing.'}
+            
+            from app.models.user_model import PasswordReset
+            from datetime import datetime
+            
+            otp_record = PasswordReset.query.filter_by(
+                email=req.email, otp=otp, is_used=False
+            ).filter(PasswordReset.otp_expiry > datetime.utcnow()).first()
+
+            if not otp_record:
+                return {'success': False, 'message': 'Invalid or expired OTP.'}
+
+            otp_record.is_used = True # Mark OTP as used
+
+            amount = float(amount)
+            if amount <= 0:
+                return {'success': False, 'message': 'Amount must be greater than zero.'}
 
             if account.status == 'Closed':
                 return {'success': False, 'message': 'Cannot perform transaction on a closed account.'}
 
             if txn_type == 'Withdraw':
                 if float(account.balance) < amount:
-                    return {'success': False, 'message': 'Insufficient balance for withdrawal.'}
+                    return {'success': False, 'message': 'Insufficient balance.'}
                 account.balance = float(account.balance) - amount
             else:
                 account.balance = float(account.balance) + amount
 
-            # Create Transaction Record
             new_txn = Transaction(
                 account_id=account.id,
                 account_number=account.account_number,
@@ -89,32 +148,20 @@ class TransactionService:
 
             db.session.add(new_txn)
             db.session.commit()
-
-            # --- Trigger Transaction Email ---
+            
+            # Trigger Notifications (Existing code...)
             try:
-                # Find the user's email if not already present
-                user_email = None
-                user_name = account.bank_holder_name
-                
-                # Try to get email from UserRegister linked to this account
-                from app.models.account_model import AccountRequest
-                req = AccountRequest.query.get(account.request_id)
-                if req:
-                    user_email = req.email
-                
-                if user_email:
-                    EmailService.send_transaction_alert_email(
-                        to_email=user_email,
-                        name=user_name,
-                        txn_type=txn_type,
-                        amount=amount,
-                        balance=float(account.balance),
-                        timestamp=new_txn.created_at.strftime("%d %b %Y, %I:%M %p"),
-                        note=note
+                from app.services.notification_service import NotificationService
+                user_reg = UserRegister.query.filter_by(email=req.email).first()
+                if user_reg:
+                    verb = "deposited into" if txn_type == 'Deposit' else "withdrawn from"
+                    NotificationService.create_notification(
+                        user_id=user_reg.id,
+                        title=f"Transaction {txn_type}",
+                        message=f"₹{amount} has been {verb} your account. New balance: ₹{account.balance}",
+                        type="success" if txn_type == 'Deposit' else "info"
                     )
-            except Exception as e:
-                print(f"DEBUG EMAIL ERROR: {str(e)}")
-            # ---------------------------------
+            except: pass
 
             return {
                 'success': True, 
@@ -124,7 +171,6 @@ class TransactionService:
                     'transaction': new_txn.to_dict()
                 }
             }
-
         except Exception as e:
             db.session.rollback()
             return {'success': False, 'message': f'Transaction failed: {str(e)}'}
@@ -270,6 +316,35 @@ class TransactionService:
                 
                 db.session.commit()
                 
+                # --- Trigger Notifications ---
+                try:
+                    from app.services.notification_service import NotificationService
+                    
+                    # Sender Notification
+                    sender_user = UserRegister.query.filter_by(email=user_login.email).first()
+                    if sender_user:
+                        NotificationService.create_notification(
+                            user_id=sender_user.id,
+                            title="Money Sent Successfully",
+                            message=f"₹{amount} has been debited from your account to {receiver_account.bank_holder_name}.",
+                            type="success"
+                        )
+                    
+                    # Receiver Notification
+                    # We need to find the UserRegister entry for the receiver
+                    receiver_req = AccountRequest.query.get(receiver_account.request_id)
+                    if receiver_req:
+                        receiver_user = UserRegister.query.filter_by(email=receiver_req.email).first()
+                        if receiver_user:
+                            NotificationService.create_notification(
+                                user_id=receiver_user.id,
+                                title="Money Received! 💰",
+                                message=f"₹{amount} has been credited to your account from {sender_account.bank_holder_name}.",
+                                type="success"
+                            )
+                except Exception as notif_err:
+                    print(f"DEBUG NOTIFICATION ERROR: {str(notif_err)}")
+
                 # --- Trigger Transfer Emails ---
                 try:
                     # Sender Email

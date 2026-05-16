@@ -141,6 +141,24 @@ class KycService:
 
         try:
             db.session.commit()
+            
+            # --- Trigger Notification ---
+            try:
+                from app.services.notification_service import NotificationService
+                from app.models.user_model import UserRegister
+                user_reg = UserRegister.query.filter_by(email=kyc.email).first()
+                if user_reg:
+                    title = "KYC Verified!" if new_status == "Verified" else "KYC Rejected"
+                    message = "Congratulations! Your KYC has been verified successfully." if new_status == "Verified" else f"Sorry, your KYC was rejected. Reason: {reject_reason}"
+                    NotificationService.create_notification(
+                        user_id=user_reg.id,
+                        title=title,
+                        message=message,
+                        type="success" if new_status == "Verified" else "error"
+                    )
+            except Exception as notif_err:
+                print(f"DEBUG KYC NOTIFICATION ERROR: {str(notif_err)}")
+
             return {'success': True, 'message': f'KYC successfully {new_status}.'}
         except Exception as e:
             db.session.rollback()

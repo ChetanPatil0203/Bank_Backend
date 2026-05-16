@@ -9,6 +9,12 @@ def process_transaction():
         return jsonify({'success': True}), 200
     return TransactionController.process_transaction()
 
+@transaction_bp.route('/admin/send-txn-otp', methods=['POST', 'OPTIONS'])
+def send_txn_otp():
+    if request.method == 'OPTIONS':
+        return jsonify({'success': True}), 200
+    return TransactionController.send_transaction_otp()
+
 @transaction_bp.route('/auth/transactions', methods=['GET', 'OPTIONS'])
 def get_my_transactions():
     if request.method == 'OPTIONS':

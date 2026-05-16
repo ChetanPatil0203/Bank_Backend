@@ -16,15 +16,24 @@ class TransactionController:
     @staticmethod
     def process_transaction():
         auth_header = request.headers.get("Authorization")
-        print(f"DEBUG: Transaction Controller received Auth Header: {auth_header}")
         if not auth_header or not auth_header.startswith("Bearer "):
             return jsonify({'success': False, 'message': 'Missing Token', 'isAuth': False}), 401
         
         token = auth_header.split(" ")[1]
         data = request.get_json() or {}
-        print(f"DEBUG: Processing transaction for data: {data}")
-        
         result = TransactionService.perform_transaction(token, data)
+        status = 200 if result.get('success') else (401 if 'isAuth' in result else 400)
+        return jsonify(result), status
+
+    @staticmethod
+    def send_transaction_otp():
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return jsonify({'success': False, 'message': 'Missing Token', 'isAuth': False}), 401
+        
+        token = auth_header.split(" ")[1]
+        account_number = request.get_json().get('account_number')
+        result = TransactionService.send_transaction_otp(token, account_number)
         status = 200 if result.get('success') else (401 if 'isAuth' in result else 400)
         return jsonify(result), status
 

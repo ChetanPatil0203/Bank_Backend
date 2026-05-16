@@ -105,3 +105,53 @@ class EmailService:
         except Exception as e:
             print(f">>> ERROR sending transaction email: {e} <<<")
             return False
+    @staticmethod
+    def send_otp_email(to_email, otp, context="Verification"):
+        sender_email = os.environ.get('GMAIL_USER')
+        sender_password = os.environ.get('GMAIL_PASSWORD')
+        
+        if not sender_email or not sender_password:
+            return False
+
+        subject = f"{context} OTP - Payzen Bank"
+        
+        body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 20px;">
+            <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e0e0e0;">
+                <div style="text-align: center; margin-bottom: 25px;">
+                    <h2 style="color: #1e3a8a; margin: 0;">🔐 {context}</h2>
+                </div>
+                <p style="color: #4b5563; font-size: 16px; line-height: 1.5;">Hello,</p>
+                <p style="color: #4b5563; font-size: 16px; line-height: 1.5;">Your One-Time Password (OTP) for <strong>{context}</strong> is:</p>
+                <div style="background-color: #f3f4f6; padding: 20px; border-radius: 10px; text-align: center; margin: 25px 0;">
+                    <span style="font-size: 36px; font-weight: 900; letter-spacing: 8px; color: #1e3a8a;">{otp}</span>
+                </div>
+                <p style="color: #6b7280; font-size: 14px; line-height: 1.5; text-align: center;">
+                    This OTP is valid for 10 minutes. Please do not share this code with anyone.
+                </p>
+                <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 25px 0;">
+                <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+                    This is an automated security message from Payzen Bank.
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+
+        message = MIMEMultipart("alternative")
+        message["Subject"] = subject
+        message["From"] = f"Payzen Security <{sender_email}>"
+        message["To"] = to_email
+
+        html_part = MIMEText(body, "html")
+        message.attach(html_part)
+
+        try:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+                server.login(sender_email, sender_password)
+                server.sendmail(sender_email, to_email, message.as_string())
+            return True
+        except Exception as e:
+            print(f">>> ERROR sending OTP email: {e} <<<")
+            return False

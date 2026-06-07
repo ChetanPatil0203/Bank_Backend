@@ -9,7 +9,11 @@ def create_app(config_class=Config):
     app.config.from_object(config_class)
     
     # Enable CORS for frontend (React)
-    CORS(app, supports_credentials=True, resources={r"/api/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]}})
+    CORS(app, supports_credentials=True, resources={r"/api/*": {"origins": [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://bank-frontend-nu.vercel.app"
+    ]}})
     db.init_app(app)
     
     with app.app_context():

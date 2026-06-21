@@ -63,6 +63,10 @@ class AccountService:
                     return {'success': False, 'message': 'already account open'}
                 elif existing_request.status == 'Pending':
                     return {'success': False, 'message': 'You already have a pending account request.'}
+                elif existing_request.status == 'Rejected':
+                    # Delete the rejected request to clear the unique Aadhaar constraint
+                    db.session.delete(existing_request)
+                    db.session.commit()
                 else:
                     return {'success': False, 'message': 'already account open'}
 

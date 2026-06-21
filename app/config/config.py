@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 import urllib.parse
 
-load_dotenv()
+load_dotenv(override=True)
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'my_dev_secret_key')
